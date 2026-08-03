@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ember Theme Editor</title>
+<style>
+  /* ---- Tokens: a dark firmware-workbench palette, deliberately single-theme --
+     this tool exists to preview a device screen, and a neutral dark chrome is
+     what makes that screen the brightest thing in the room, the same reason
+     hardware bring-up tools (scopes, logic analyzers, JTAG consoles) are dark. */
+  :root{
+    --bg: #131519;
+    --bg-raised: #191c21;
+    --panel: #1c2027;
+    --panel-2: #20252d;
+    --border: #2b313b;
+    --border-soft: #23272f;
+    --text: #ece9e4;
+    --text-dim: #939aa6;
+    --text-faint: #5c6270;
+    --accent: #ff9a3c;
+    --accent-dim: #c97a30;
+    --accent-soft: rgba(255, 154, 60, .13);
+    --danger: #e0654f;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --radius: 8px;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  ::selection{ background: var(--accent-soft); color: var(--text); }
+
+  a{ color: var(--accent); }
+
+  button{
+    font: inherit;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+  }
+  button:hover{ border-color: var(--accent-dim); }
+  button:active{ transform: translateY(1px); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  button.primary{
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #1a1206;
+    font-weight: 600;
+  }
+  button.primary:hover{ background: #ffab5c; border-color: #ffab5c; }
+  button.ghost{ background: transparent; }
+  button.danger{ color: var(--danger); }
+  button.danger:hover{ border-color: var(--danger); }
+  button:disabled{ opacity: .4; cursor: not-allowed; }
+
+  input[type="text"], select, textarea{
+    font: inherit;
+    color: var(--text);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+  }
+
+  .topbar{
+    display:flex; align-items:center; gap:18px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border-soft);
+    background: linear-gradient(180deg, var(--bg-raised), var(--bg));
+    flex-wrap: wrap;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:9px;
+    margin-right: auto;
+  }
+  .brand .mark{
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 18px;
+  }
+  .brand h1{
+    font-size: 15px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text);
+  }
+  .brand .sub{
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+  }
+
+  .preset-controls{ display:flex; align-items:center; gap:8px; flex-wrap: wrap; }
+  .preset-controls select{ min-width: 150px; }
+  .preset-controls input[type="text"]{ width: 150px; }
+
+  .layout{
+    display:grid;
+    grid-template-columns: minmax(340px, 460px) 1fr;
+    gap: 0;
+    align-items: start;
+  }
+  @media (max-width: 900px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+
+  .controls{
+    padding: 22px;
+    border-right: 1px solid var(--border-soft);
+  }
+  @media (max-width: 900px){
+    .controls{ border-right: none; border-bottom: 1px solid var(--border-soft); }
+  }
+
+  .group{ margin-bottom: 26px; }
+  .group h2{
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 0 0 10px;
+    font-weight: 700;
+  }
+
+  .field{
+    display:grid;
+    grid-template-columns: 30px 1fr auto auto;
+    align-items:center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-radius: 6px;
+  }
+  .field:hover{ background: var(--bg-raised); }
+  .field .swatch-wrap{ position: relative; width: 28px; height: 28px; }
+  .field .swatch-wrap input[type="color"]{
+    position:absolute; inset:0; width:100%; height:100%;
+    opacity:0; cursor:pointer; border:0; padding:0;
+  }
+  .field .swatch{
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+    pointer-events: none;
+  }
+  .field .labelblock{ min-width: 0; }
+  .field .labelblock .name{ font-size: 13px; color: var(--text); }
+  .field .labelblock .note{
+    font-size: 11.5px; color: var(--text-faint);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .field .hex{
+    font-family: var(--mono);
+    font-size: 12.5px;
+    width: 84px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .field .device-swatch{
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .fidelity-note{
+    display:flex; gap: 8px; align-items: flex-start;
+    font-size: 12px; color: var(--text-faint);
+    background: var(--bg-raised);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 4px;
+  }
+
+  .preview-col{
+    padding: 22px;
+    position: sticky;
+    top: 0;
+  }
+
+  .device{
+    background: linear-gradient(160deg, #24272d, #1a1c20);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 22px 22px 26px;
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.03);
+    max-width: 640px;
+  }
+  .device .device-label{
+    display:flex; justify-content: space-between; align-items:center;
+    margin-bottom: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: .04em;
+  }
+  .device .device-label .dot{
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    display:inline-block; margin-right: 6px;
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  .screen-frame{
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 0 2px #050607, 0 0 0 3px #000;
+    aspect-ratio: 240 / 135;
+  }
+  .screen{
+    position:absolute; inset:0;
+    background: var(--p-bg);
+    font-family: var(--mono);
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  .screen::after{
+    content:"";
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(
+      0deg, rgba(0,0,0,.07) 0px, rgba(0,0,0,.07) 1px,
+      transparent 1px, transparent 3px
+    );
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    opacity: .5;
+  }
+  .s-header{
+    background: var(--p-header);
+    color: var(--p-headerText);
+    display:flex; align-items:center; justify-content: space-between;
+    padding: 0 3.2%;
+    height: 20.7%;
+    font-size: 4.6cqw;
+  }
+  .s-header .s-title{ font-weight:600; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .s-header .s-icons{ display:flex; gap: 6px; align-items:center; flex:none; }
+  /* Battery is intentionally NOT theme-driven in the firmware (see CLAUDE.md) --
+     always fixed white regardless of theme, so it's drawn that way here too
+     rather than tied to any --p-* variable. */
+  .s-header .icon-batt{
+    width: 16px; height: 8px; border: 1.4px solid #fff; border-radius: 1.5px;
+    position: relative; opacity: .85;
+  }
+  .s-header .icon-batt::after{
+    content:""; position:absolute; right:-3px; top:1.5px; width:2px; height:3px; background:#fff;
+  }
+  .s-header .icon-batt::before{
+    content:""; position:absolute; left:1px; top:1px; bottom:1px; width:65%; background:#fff;
+  }
+  .s-list{ flex:1; overflow:hidden; padding: 2% 0; }
+  .s-row{
+    display:flex; align-items:center; gap: 3%;
+    padding: 0 3.2%;
+    height: 15.5%;
+    font-size: 4.4cqw;
+    white-space: nowrap;
+  }
+  .s-row.s-folder{ color: var(--p-folder); }
+  .s-row.s-file{ color: var(--p-file); }
+  .s-row .ficon{
+    flex:none; width: 3.6cqw; height: 3.1cqw;
+    border: 1.3px solid currentColor; border-radius: 1px;
+    position: relative;
+  }
+  .s-row .ficon::before{
+    content:""; position:absolute; left:0; top:-1.6px; width:45%; height:1.6px;
+    background: currentColor;
+  }
+  .s-row.s-selected{
+    background: var(--p-selBg);
+    color: var(--p-selFg);
+    border-radius: 4px;
+    margin: 0 1.6%;
+    padding: 0 3.2% 0 1.6%;
+    width: 96.8%;
+  }
+  .s-row.s-selected .ficon{ border-color: currentColor; }
+
+  /* ---- Now Playing mockup: absolutely-positioned to the same proportions as
+     the real 240x135 layout (album art at 6,6 sized 105x105, text column
+     starting at x=120, progress line just under the art box) rather than a
+     generic approximation, so it stays meaningfully to-scale. ---- */
+  .screen.npbody{ display:block; background: var(--p-npBg); }
+  .np-art{
+    position:absolute; left:2.5%; top:4.44%; width:43.75%; height:77.78%;
+    background: var(--p-npBg);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .np-art::before{
+    content:"";
+    width:52%; aspect-ratio:1;
+    border-radius:50%;
+    border: 3px solid var(--p-file);
+    box-sizing: border-box;
+  }
+  .np-art::after{
+    content:"";
+    position:absolute;
+    width:13%; aspect-ratio:1;
+    border-radius:50%;
+    border: 2px solid var(--p-file);
+    box-sizing: border-box;
+  }
+  .np-iconrow{
+    position:absolute; left:50%; top:0; width:47.5%; height:14.8%;
+    display:flex; align-items:center; gap: 5%;
+  }
+  .np-speaker{
+    flex:none; width:5px; height:9px; background: var(--p-volumeIcon); position:relative;
+  }
+  .np-speaker::after{
+    content:""; position:absolute; left:100%; top:-3px;
+    border-style:solid; border-width:7.5px 0 7.5px 6px;
+    border-color: transparent transparent transparent var(--p-volumeIcon);
+  }
+  .np-volbars{ display:flex; gap:2px; margin-left:8px; }
+  .np-volbars i{ width:3px; height:10px; background: var(--border); border-radius:.5px; }
+  .np-volbars i.lit{ background: var(--p-volumeIcon); }
+  /* Battery: fixed white, not theme-driven -- see the note on .icon-batt above. */
+  .np-batt{
+    margin-left:auto; flex:none; width:16px; height:8px;
+    border: 1.4px solid #fff; border-radius: 1.5px; position:relative; opacity:.85;
+  }
+  .np-batt::after{ content:""; position:absolute; right:-3px; top:1.5px; width:2px; height:3px; background:#fff; }
+  .np-batt::before{ content:""; position:absolute; left:1px; top:1px; bottom:1px; width:65%; background:#fff; }
+
+  .np-artist, .np-title, .np-album{
+    position:absolute; left:50%; width:47.5%;
+    font-family: var(--mono);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .np-artist{ top:16.3%; font-size:4.8cqw; font-weight:600; color: var(--p-npText); }
+  .np-title{  top:29.6%; font-size:4.4cqw; color: var(--p-dim); }
+  .np-album{  top:42.9%; font-size:4.2cqw; color: var(--p-dim); }
+
+  .np-progress{ position:absolute; left:2.5%; top:88.1%; width:43.75%; height:6%; }
+  .np-progress-line{
+    position:absolute; left:0; right:0; top:50%; height:1.4px;
+    background: var(--p-dim);
+  }
+  .np-progress-dot{
+    position:absolute; left:35%; top:50%; width:9px; height:9px; margin:-4.5px 0 0 -4.5px;
+    border-radius:50%; background: var(--p-progressDot);
+  }
+
+  /* Segmented like the real firmware -- 8 discrete LED-style blocks per
+     column (VIS_SEG_COUNT), not a smooth bar -- so the idle/no-sound color
+     is something you can actually see, not just a config value that never
+     renders in the preview. Unlit segments default to visIdle; lit ones are
+     colored by tier via the .on-* classes. */
+  .np-vis{
+    position:absolute; left:50%; width:47.5%; bottom:6%; height:30%;
+    display:flex; gap:5%;
+  }
+  .np-vis .vcol{
+    flex:1; height:100%;
+    display:flex; flex-direction:column-reverse; gap:8%;
+  }
+  .np-vis .vcol i{ flex:1; border-radius: 1px; background: var(--p-visIdle); }
+  .np-vis .vcol i.on-low{  background: var(--p-play); }
+  .np-vis .vcol i.on-mid{  background: var(--p-visMid); }
+  .np-vis .vcol i.on-high{ background: var(--p-visHigh); }
+
+  .export{
+    margin-top: 20px;
+    max-width: 640px;
+  }
+  .tabs{ display:flex; gap: 4px; margin-bottom: 8px; }
+  .tab{
+    background: transparent; border: 1px solid var(--border-soft);
+    color: var(--text-dim);
+    padding: 6px 12px; border-radius: 6px 6px 0 0; border-bottom: none;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .tab.active{ color: var(--accent); border-color: var(--border); background: var(--panel); }
+  .code-panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 0 8px 8px 8px;
+    padding: 14px 16px;
+    position: relative;
+  }
+  .code-panel pre{
+    margin:0; font-family: var(--mono); font-size: 12.5px; line-height:1.6;
+    color: var(--text); white-space: pre; overflow-x: auto;
+  }
+  .code-panel .comment{ color: var(--text-faint); }
+  .code-panel .kw{ color: #7fb7e8; }
+  .code-panel .num{ color: #d0a45f; }
+  .code-panel-actions{
+    position:absolute; top:10px; right:10px;
+    display:flex; gap:6px;
+  }
+  .copy-btn{ font-size: 12px; padding: 5px 10px; }
+  .copy-btn.copied{ border-color: var(--accent); color: var(--accent); }
+
+  .import{
+    margin-top: 18px;
+    max-width: 640px;
+  }
+  .import h2{
+    font-size: 11px; letter-spacing:.12em; text-transform:uppercase;
+    color: var(--text-faint); margin: 0 0 8px; font-weight:700;
+  }
+  .import textarea{
+    width:100%; min-height: 78px; font-family: var(--mono); font-size:12px; resize: vertical;
+  }
+  .import-row{ display:flex; gap:8px; margin-top:8px; align-items:center; }
+  .import-status{ font-size:12px; color: var(--text-faint); }
+  .import-status.err{ color: var(--danger); }
+  .import-status.ok{ color: #8fd18f; }
+
+  footer{
+    padding: 18px 22px 40px;
+    color: var(--text-faint);
+    font-size: 12px;
+    max-width: 640px;
+  }
+  footer code{ font-family: var(--mono); background: var(--bg-raised); padding: 1px 5px; border-radius: 4px; }
+  footer p{ margin: 0 0 10px; }
+  footer p:last-child{ margin-bottom: 0; }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">&#9679;</span>
+      <div>
+        <h1>Ember Theme Editor</h1>
+        <div class="sub">for src/main.cpp &mdash; struct Theme</div>
+      </div>
+    </div>
+    <div class="preset-controls">
+      <select id="presetSelect" aria-label="Preset"></select>
+      <input type="text" id="presetName" maxlength="24" spellcheck="false" aria-label="Preset name">
+      <button id="btnSave" class="primary">Save</button>
+      <button id="btnDuplicate" class="ghost">Duplicate</button>
+      <button id="btnDelete" class="danger ghost">Delete</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="controls">
+      <div id="groups"></div>
+
+      <div class="fidelity-note">
+        <span>&#9432;&#65039;</span>
+        <div>
+          The small square next to each hex field is what that color actually
+          becomes on the Cardputer's 16-bit (RGB565) display &mdash; the picker
+          gives you full 24-bit precision, but the panel only has 5/6/5 bits
+          per channel, so some values shift slightly once quantized. The
+          preview on the right always shows the quantized version.
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-col">
+      <div class="device">
+        <div class="device-label"><span><span class="dot"></span>Browser &mdash; live preview</span><span>240&times;135</span></div>
+        <div class="screen-frame" style="container-type:inline-size;">
+          <div class="screen" id="screenBrowser">
+            <div class="s-header">
+              <span class="s-title" id="pHeaderTitle">Boards of Canada</span>
+              <div class="s-icons"><span class="icon-batt"></span></div>
+            </div>
+            <div class="s-list">
+              <div class="s-row s-folder"><span class="ficon"></span>Music for the Jilted Generation</div>
+              <div class="s-row s-folder"><span class="ficon"></span>Selected Ambient Works</div>
+              <div class="s-row s-file s-selected"><span class="ficon"></span>01 - Roygbiv.mp3</div>
+              <div class="s-row s-file"><span class="ficon"></span>02 - Rue the Whirl.mp3</div>
+              <div class="s-row s-file"><span class="ficon"></span>03 - Aquarius.mp3</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device" style="margin-top:18px;">
+        <div class="device-label"><span><span class="dot"></span>Now Playing &mdash; live preview</span><span>240&times;135</span></div>
+        <div class="screen-frame" style="container-type:inline-size;">
+          <div class="screen npbody" id="screenNP">
+            <div class="np-art"></div>
+            <div class="np-iconrow">
+              <span class="np-speaker"></span>
+              <span class="np-volbars">
+                <i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i></i><i></i>
+              </span>
+              <span class="np-batt"></span>
+            </div>
+            <div class="np-artist">Boards of Canada</div>
+            <div class="np-title">Roygbiv</div>
+            <div class="np-album">Music Has the Right to Children</div>
+            <div class="np-progress">
+              <span class="np-progress-line"></span>
+              <span class="np-progress-dot"></span>
+            </div>
+            <!-- 8 columns x 8 segments, matching VIS_SEG_COUNT exactly -- each
+                 column's lit-segment count/tiers are worked out from the same
+                 math drawVisualizer() uses, so this is a faithful preview,
+                 not just a decorative approximation. -->
+            <div class="np-vis">
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i class="on-mid"></i><i></i><i></i><i></i></div>
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i class="on-mid"></i><i class="on-mid"></i><i class="on-high"></i><i></i></div>
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i></i><i></i><i></i><i></i></div>
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i class="on-mid"></i><i class="on-mid"></i><i></i><i></i></div>
+              <div class="vcol"><i class="on-low"></i><i class="on-low"></i><i class="on-low"></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="export">
+        <div class="tabs">
+          <button class="tab active" data-tab="cpp">main.cpp</button>
+          <button class="tab" data-tab="json">JSON</button>
+        </div>
+        <div class="code-panel">
+          <div class="code-panel-actions">
+            <button class="copy-btn" id="downloadBtn">Download</button>
+            <button class="copy-btn" id="copyBtn">Copy</button>
+          </div>
+          <pre id="codeOut"></pre>
+        </div>
+      </div>
+
+      <div class="import">
+        <h2>Import JSON</h2>
+        <textarea id="importBox" placeholder="Paste a theme JSON blob exported from this tool&hellip;"></textarea>
+        <div class="import-row">
+          <button id="btnImport">Apply</button>
+          <span class="import-status" id="importStatus"></span>
+        </div>
+      </div>
+
+      <footer>
+        <p>
+          Colors are stored in your browser (<code>localStorage</code>) as
+          presets, and never leave this page.
+        </p>
+        <p>
+          <strong>To use a theme on your device</strong> (no recompiling):
+          on the <strong>JSON</strong> tab, click <strong>Download</strong>,
+          then copy that file into a <code>/themes</code> folder on the
+          Cardputer's SD card (create the folder if it doesn't exist yet).
+          After a reboot, it shows up as an extra option under
+          <code>Settings &rarr; Theme</code>, named after whatever you typed
+          in the preset field above.
+        </p>
+        <p>
+          <strong>To contribute a theme back to the project</strong> (gets it
+          built in for everyone, not just your SD card): switch to the
+          <strong>main.cpp</strong> tab instead, copy the struct, and open a
+          PR or issue on GitHub with it.
+        </p>
+      </footer>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- Field definitions: mirrors `struct Theme` field order in main.cpp,
+  // including its own inline comments so the exported code reads identically. ----
+  var FIELDS = [
+    { key:"bg",         label:"Background",        group:"Surfaces",   comment:"browser screen background" },
+    { key:"header",     label:"Header Bar",         group:"Surfaces",   comment:"top bar fill + settings box fill" },
+    { key:"headerText", label:"Header Text",        group:"Text",       comment:"title text on the header bar" },
+    { key:"folder",     label:"Folder Name",        group:"Text",       comment:"folder rows in the browser list" },
+    { key:"file",       label:"File Name",          group:"Text",       comment:"track rows in the browser list" },
+    { key:"dim",        label:"Dim / Secondary",    group:"Text",       comment:"empty-folder note, title/album lines, progress line" },
+    { key:"selBg",      label:"Selection Fill",     group:"Selection",  comment:"highlighted row pill background" },
+    { key:"selFg",      label:"Selection Text",     group:"Selection",  comment:"text on the highlighted row" },
+    { key:"npBg",       label:"Background",         group:"Now Playing",comment:"Now Playing's own background (independent of Browser)" },
+    { key:"npText",     label:"Artist Text",        group:"Now Playing",comment:"the bright top line (artist name)" },
+    { key:"volumeIcon", label:"Volume Meter",       group:"Now Playing",comment:"speaker glyph + lit bars" },
+    { key:"progressDot",label:"Progress Dot",       group:"Now Playing",comment:"scrub-position marker on the progress line" },
+    { key:"play",       label:"Visualizer - Low",   group:"Now Playing",comment:"amplitude bars, bottom ~60% of each column" },
+    { key:"visMid",     label:"Visualizer - Mid",   group:"Now Playing",comment:"amplitude bars, ~60-85% of each column" },
+    { key:"visHigh",    label:"Visualizer - High",  group:"Now Playing",comment:"amplitude bars, top ~15% of each column" },
+    { key:"visIdle",    label:"Visualizer - Idle",  group:"Now Playing",comment:"unlit segments when there's no sound" }
+  ];
+  var GROUP_ORDER = ["Surfaces", "Text", "Selection", "Now Playing"];
+
+  var DEFAULT_EMBER = {
+    bg:[12,8,6], header:[42,24,14], headerText:[245,230,215], folder:[255,158,56],
+    file:[233,219,205], selBg:[196,88,22], selFg:[255,244,230], dim:[122,98,82], play:[130,210,100],
+    npText:[255,255,255], volumeIcon:[255,255,255], progressDot:[255,244,230],
+    visMid:[255,255,0], visHigh:[255,0,0],
+    npBg:[12,8,6], visIdle:[135,120,110]
+  };
+
+  var STORE_KEY = "emberThemeEditor.presets.v1";
+  var LAST_KEY  = "emberThemeEditor.lastState.v1";
+
+  // ---- color helpers ----
+  function clamp8(n){ return Math.max(0, Math.min(255, n|0)); }
+  function toHex(rgb){
+    return "#" + rgb.map(function(c){ var h = clamp8(c).toString(16); return h.length<2 ? "0"+h : h; }).join("");
+  }
+  function fromHex(hex){
+    hex = hex.replace("#","");
+    if (hex.length === 3) hex = hex.split("").map(function(c){ return c+c; }).join("");
+    var n = parseInt(hex, 16);
+    return [(n>>16)&255, (n>>8)&255, n&255];
+  }
+  // Same bit-truncation the firmware's rgb565() macro performs:
+  // (r&0xF8)<<8 | (g&0xFC)<<3 | (b>>3) -- then re-expanded to 8-bit for CSS.
+  function quantize565(rgb){
+    return [ rgb[0] & 0xF8, rgb[1] & 0xFC, rgb[2] & 0xF8 ];
+  }
+
+  // ---- state ----
+  var current = {};   // key -> [r,g,b] (full precision, as picked)
+  var presetName = "Ember";
+
+  function resetToEmberDefaults(){
+    FIELDS.forEach(function(f){ current[f.key] = DEFAULT_EMBER[f.key].slice(); });
+  }
+  resetToEmberDefaults();
+
+  // ---- persistence ----
+  function loadPresets(){
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+    catch(e){ return {}; }
+  }
+  function savePresets(p){
+    localStorage.setItem(STORE_KEY, JSON.stringify(p));
+  }
+  function saveLastState(){
+    try { localStorage.setItem(LAST_KEY, JSON.stringify({ name: presetName, colors: current })); }
+    catch(e){}
+  }
+  function loadLastState(){
+    try {
+      var s = JSON.parse(localStorage.getItem(LAST_KEY));
+      if (s && s.colors) { presetName = s.name || "Ember"; return s.colors; }
+    } catch(e){}
+    return null;
+  }
+
+  function ensureBuiltinPreset(){
+    var p = loadPresets();
+    if (!p["Ember"]) { p["Ember"] = DEFAULT_EMBER; savePresets(p); }
+    return p;
+  }
+
+  // ---- DOM: build the color fields, grouped ----
+  var groupsEl = document.getElementById("groups");
+  var fieldEls = {};   // key -> { hex, swatch, deviceSwatch, colorInput }
+
+  function buildFields(){
+    GROUP_ORDER.forEach(function(groupName){
+      var groupFields = FIELDS.filter(function(f){ return f.group === groupName; });
+      if (!groupFields.length) return;
+      var g = document.createElement("div");
+      g.className = "group";
+      var h = document.createElement("h2");
+      h.textContent = groupName;
+      g.appendChild(h);
+
+      groupFields.forEach(function(f){
+        var row = document.createElement("div");
+        row.className = "field";
+
+        var swatchWrap = document.createElement("div");
+        swatchWrap.className = "swatch-wrap";
+        var colorInput = document.createElement("input");
+        colorInput.type = "color";
+        var swatch = document.createElement("div");
+        swatch.className = "swatch";
+        swatchWrap.appendChild(swatch);
+        swatchWrap.appendChild(colorInput);
+
+        var labelblock = document.createElement("div");
+        labelblock.className = "labelblock";
+        var name = document.createElement("div");
+        name.className = "name";
+        name.textContent = f.label;
+        var note = document.createElement("div");
+        note.className = "note";
+        note.textContent = f.comment;
+        labelblock.appendChild(name);
+        labelblock.appendChild(note);
+
+        var hex = document.createElement("input");
+        hex.type = "text";
+        hex.className = "hex";
+        hex.maxLength = 7;
+        hex.spellcheck = false;
+
+        var deviceSwatch = document.createElement("div");
+        deviceSwatch.className = "device-swatch";
+        deviceSwatch.title = "As rendered on the 16-bit display";
+
+        row.appendChild(swatchWrap);
+        row.appendChild(labelblock);
+        row.appendChild(hex);
+        row.appendChild(deviceSwatch);
+        g.appendChild(row);
+
+        function onChange(rgb){
+          current[f.key] = rgb;
+          refreshField(f.key);
+          refreshPreview();
+          refreshExport();
+          saveLastState();
+        }
+        colorInput.addEventListener("input", function(){ onChange(fromHex(colorInput.value)); });
+        hex.addEventListener("change", function(){
+          var v = hex.value.trim();
+          if (/^#?[0-9a-fA-F]{6}$/.test(v)) onChange(fromHex(v));
+          else refreshField(f.key); // revert to last good value
+        });
+
+        fieldEls[f.key] = { hex: hex, swatch: swatch, deviceSwatch: deviceSwatch, colorInput: colorInput };
+      });
+
+      groupsEl.appendChild(g);
+    });
+  }
+
+  function refreshField(key){
+    var rgb = current[key];
+    var els = fieldEls[key];
+    var hex = toHex(rgb);
+    els.hex.value = hex;
+    els.swatch.style.background = hex;
+    els.colorInput.value = hex;
+    var q = toHex(quantize565(rgb));
+    els.deviceSwatch.style.background = q;
+    els.deviceSwatch.title = "Device (RGB565): " + q;
+  }
+  function refreshAllFields(){ FIELDS.forEach(function(f){ refreshField(f.key); }); }
+
+  // ---- live device preview ----
+  var previewTargets = [document.getElementById("screenBrowser"), document.getElementById("screenNP")];
+  function refreshPreview(){
+    var vars = {};
+    FIELDS.forEach(function(f){
+      vars["--p-" + f.key] = toHex(quantize565(current[f.key]));
+    });
+    previewTargets.forEach(function(el){
+      Object.keys(vars).forEach(function(k){ el.style.setProperty(k, vars[k]); });
+    });
+  }
+
+  // ---- export ----
+  var activeTab = "cpp";
+  // `struct Theme` in main.cpp initializes its fields positionally -- this
+  // order must match that declaration exactly, independent of whatever order
+  // FIELDS/GROUP_ORDER display them in for editing. Getting this wrong would
+  // silently assign colors to the wrong fields when pasted into main.cpp.
+  var STRUCT_ORDER = ["bg","header","headerText","folder","file","selBg","selFg",
+                       "dim","play","npText","volumeIcon","progressDot","visMid","visHigh",
+                       "npBg","visIdle"];
+  function safeIdent(name){
+    var s = (name || "THEME").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    return s || "CUSTOM";
+  }
+  function cppSnippet(){
+    var byKey = {};
+    FIELDS.forEach(function(f){ byKey[f.key] = f; });
+    var maxLabel = Math.max.apply(null, STRUCT_ORDER.map(function(k){ return k.length; }));
+    var lines = STRUCT_ORDER.map(function(key){
+      var f = byKey[key];
+      var rgb = current[key];
+      var call = "rgb565(" + rgb[0] + ", " + rgb[1] + ", " + rgb[2] + "),";
+      var label = key + " ".repeat(maxLabel - key.length);
+      return "    " + call.padEnd(22) + "// " + label + " -- " + f.comment;
+    });
+    return "static const Theme THEME_" + safeIdent(presetName) + " = {\n" + lines.join("\n") + "\n};\n\n" +
+           "// then point the active theme at it:\n" +
+           "static Theme theme = THEME_" + safeIdent(presetName) + ";";
+  }
+  function jsonSnippet(){
+    var out = { name: presetName, colors: {} };
+    FIELDS.forEach(function(f){ out.colors[f.key] = toHex(current[f.key]); });
+    return JSON.stringify(out, null, 2);
+  }
+  function highlightCpp(src){
+    return src
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/(\/\/.*)$/gm, '<span class="comment">$1</span>')
+      .replace(/\b(static|const|struct)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+)\b/g, '<span class="num">$1</span>');
+  }
+  function refreshExport(){
+    var codeOut = document.getElementById("codeOut");
+    if (activeTab === "cpp") codeOut.innerHTML = highlightCpp(cppSnippet());
+    else codeOut.textContent = jsonSnippet();
+  }
+
+  document.querySelectorAll(".tab").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".tab").forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      activeTab = btn.getAttribute("data-tab");
+      refreshExport();
+    });
+  });
+
+  function copyText(text){
+    function fallback(){
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand("copy"); } catch(e){}
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).catch(fallback);
+    } else {
+      fallback();
+    }
+  }
+  document.getElementById("copyBtn").addEventListener("click", function(){
+    var text = activeTab === "cpp" ? cppSnippet() : jsonSnippet();
+    copyText(text);
+    var btn = document.getElementById("copyBtn");
+    btn.textContent = "Copied";
+    btn.classList.add("copied");
+    setTimeout(function(){ btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1200);
+  });
+
+  // Downloads a real file -- for the JSON tab specifically, this is the file
+  // you drop straight into /themes/ on the Cardputer's SD card (filename
+  // matches the preset name, exactly what the firmware expects to see when
+  // it scans that folder at boot). The main.cpp tab downloads too, mostly
+  // for consistency, but that one's still meant to be pasted into the
+  // firmware source, not dropped on the SD card.
+  document.getElementById("downloadBtn").addEventListener("click", function(){
+    var isJson = activeTab === "json";
+    var text = isJson ? jsonSnippet() : cppSnippet();
+    var filename = safeIdent(presetName).replace(/_/g, "-").toLowerCase() + (isJson ? ".json" : ".cpp.txt");
+    var blob = new Blob([text], { type: isJson ? "application/json" : "text/plain" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    var btn = document.getElementById("downloadBtn");
+    var old = btn.textContent;
+    btn.textContent = "Saved";
+    setTimeout(function(){ btn.textContent = old; }, 1200);
+  });
+
+  // ---- presets UI ----
+  var presetSelect = document.getElementById("presetSelect");
+  var presetNameInput = document.getElementById("presetName");
+
+  function refreshPresetSelect(selectName){
+    var presets = ensureBuiltinPreset();
+    var names = Object.keys(presets).sort(function(a,b){
+      if (a === "Ember") return -1;
+      if (b === "Ember") return 1;
+      return a.localeCompare(b);
+    });
+    presetSelect.innerHTML = "";
+    names.forEach(function(n){
+      var opt = document.createElement("option");
+      opt.value = n; opt.textContent = n;
+      presetSelect.appendChild(opt);
+    });
+    if (selectName && names.indexOf(selectName) !== -1) presetSelect.value = selectName;
+  }
+
+  function applyPreset(name, colorsHex){
+    presetName = name;
+    presetNameInput.value = name;
+    FIELDS.forEach(function(f){
+      current[f.key] = colorsHex[f.key] ? fromHex(colorsHex[f.key]) : DEFAULT_EMBER[f.key].slice();
+    });
+    refreshAllFields();
+    refreshPreview();
+    refreshExport();
+    saveLastState();
+  }
+
+  presetSelect.addEventListener("change", function(){
+    var presets = loadPresets();
+    var name = presetSelect.value;
+    if (presets[name]) applyPreset(name, toHexMap(presets[name]));
+  });
+  function toHexMap(rgbMap){
+    var out = {};
+    Object.keys(rgbMap).forEach(function(k){ out[k] = toHex(rgbMap[k]); });
+    return out;
+  }
+
+  presetNameInput.addEventListener("change", function(){
+    presetName = presetNameInput.value.trim() || "Custom";
+    refreshExport();
+    saveLastState();
+  });
+
+  document.getElementById("btnSave").addEventListener("click", function(){
+    var name = presetNameInput.value.trim() || "Custom";
+    presetName = name;
+    var presets = loadPresets();
+    var toStore = {};
+    FIELDS.forEach(function(f){ toStore[f.key] = current[f.key].slice(); });
+    presets[name] = toStore;
+    savePresets(presets);
+    refreshPresetSelect(name);
+    saveLastState();
+    flashStatus("btnSave", "Saved");
+  });
+
+  document.getElementById("btnDuplicate").addEventListener("click", function(){
+    var base = presetNameInput.value.trim() || "Custom";
+    var presets = loadPresets();
+    var n = base + " copy", i = 2;
+    while (presets[n]) { n = base + " copy " + i; i++; }
+    var toStore = {};
+    FIELDS.forEach(function(f){ toStore[f.key] = current[f.key].slice(); });
+    presets[n] = toStore;
+    savePresets(presets);
+    presetName = n;
+    presetNameInput.value = n;
+    refreshPresetSelect(n);
+    saveLastState();
+  });
+
+  document.getElementById("btnDelete").addEventListener("click", function(){
+    var name = presetSelect.value;
+    if (name === "Ember") { flashStatus("btnDelete", "Can't delete"); return; }
+    var presets = loadPresets();
+    delete presets[name];
+    savePresets(presets);
+    refreshPresetSelect("Ember");
+    applyPreset("Ember", toHexMap(presets["Ember"] || DEFAULT_EMBER));
+  });
+
+  function flashStatus(btnId, msg){
+    var btn = document.getElementById(btnId);
+    var old = btn.textContent;
+    btn.textContent = msg;
+    setTimeout(function(){ btn.textContent = old; }, 1000);
+  }
+
+  // ---- import ----
+  document.getElementById("btnImport").addEventListener("click", function(){
+    var box = document.getElementById("importBox");
+    var status = document.getElementById("importStatus");
+    try {
+      var data = JSON.parse(box.value);
+      if (!data.colors) throw new Error("missing colors");
+      var name = data.name || "Imported";
+      applyPreset(name, data.colors);
+      status.textContent = "Imported “" + name + "”.";
+      status.className = "import-status ok";
+    } catch(e){
+      status.textContent = "Couldn't parse that JSON.";
+      status.className = "import-status err";
+    }
+  });
+
+  // ---- boot ----
+  buildFields();
+  ensureBuiltinPreset();
+  var last = loadLastState();
+  if (last) {
+    FIELDS.forEach(function(f){ if (last[f.key]) current[f.key] = last[f.key]; });
+  }
+  refreshPresetSelect(presetName);
+  presetNameInput.value = presetName;
+  refreshAllFields();
+  refreshPreview();
+  refreshExport();
+})();
+</script>
+</body>
+</html>
