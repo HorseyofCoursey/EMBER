@@ -76,3 +76,7 @@ The editor also works completely offline as a local file (`tools/theme-editor.ht
 ## Taking your own screenshots
 
 Press `c` on any screen to save a BMP to `/screenshots` on the SD card; hold it to burst-capture a sequence (useful for the animated screens). There's no timestamp metadata (no RTC on this board), so if you need to tell capture sessions apart afterward, diffing consecutive frames for content changes works well.
+
+## License
+
+[MIT](LICENSE)
