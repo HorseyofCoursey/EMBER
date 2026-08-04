@@ -3,13 +3,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-orange)](https://buymeacoffee.com/horseyofcoursey)
 
-A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](https://shop.m5stack.com/products/m5stack-cardputer-adv-version-esp32-s3) (ESP32-S3). SD-card folder browsing, custom color themes, a couple of full-screen visualizers, and no companion app required.
+A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](https://shop.m5stack.com/products/m5stack-cardputer-adv-version-esp32-s3) (ESP32-S3). SD-card folder browsing, album art, custom color themes, and a couple of full-screen visualizers.
 
 
 <p float="left">
-  <img src="docs/screenshots/now_playing.png" width="334" alt="Now Playing screen">
-  <img src="docs/screenshots/file_navigation.png" width="334" alt="Folder browser">
-  <img src="https://github.com/user-attachments/assets/57eebac1-4dfc-464e-8e84-12f8bde95d6e" width="334" alt="viusalizer_Image">
+  <img src="docs/screenshots/now_playing.png" width="330" alt="Now Playing screen">
+  <img src="docs/screenshots/file_navigation.png" width="330" alt="Folder browser">
+  <img src="https://github.com/user-attachments/assets/57eebac1-4dfc-464e-8e84-12f8bde95d6e" width="330" alt="viusalizer_Image">
 </p>
 
 ## In motion
@@ -46,7 +46,7 @@ The Cardputer has no dedicated arrow keys — the punctuation cluster doubles as
 | Enter | Open / play |
 | Space | Play / pause |
 | `,` / `/` (Now Playing) | Seek back/forward; double-tap to restart / skip to next track |
-| `n` / `p` | Next / previous track |
+| `n` / `b` | Next / previous track |
 | `-` / `=` | Volume down / up |
 | `m` | Toggle Now Playing screen |
 | `v` (Now Playing) | Cycle full-screen visualizer: spectrum → dancers → back |
@@ -70,6 +70,18 @@ The editor also works completely offline as a local file (`tools/theme-editor.ht
 
 Press `c` on any screen to save a BMP to `/screenshots` on the SD card; hold it to burst-capture a sequence (useful for the animated screens). There's no timestamp metadata (no RTC on this board), so if you need to tell capture sessions apart afterward, diffing consecutive frames for content changes works well.
 
+## Credit
+Thank you to the creators of the following repositories (in no particular order) that inspired this project and provided a code base to start.
+[AdvanceOS-for-cardputer](https://github.com/bomberman30/AdvanceOS-for-cardputer) - bomberman30  
+[MP3PlayerforM5Cardputer](https://github.com/sanchitminda/MP3PlayerForM5Cardputer) -  sanchitminda  
+[CardPuter_Mp3_Adv](https://github.com/vicliu624/CardPuter_Mp3_Adv) - vicliu624  
+[M5Mp3](https://github.com/VolosR/M5Mp3) - VolosR
+
+
+
+
 ## License
 
 [MIT](LICENSE)
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-orange)](https://buymeacoffee.com/horseyofcoursey)
