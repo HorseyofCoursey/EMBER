@@ -1,10 +1,15 @@
-# Ember
+<img width="1100" height="400" alt="Image" src="https://github.com/user-attachments/assets/cc78e87a-e181-499a-aee7-c9214cfb5a73" />
 
-A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](https://docs.m5stack.com/en/core/Cardputer%20ADV) (ESP32-S3). SD-card folder browsing, custom color themes, a couple of full-screen visualizers, and no companion app required.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-orange)](https://buymeacoffee.com/horseyofcoursey)
+
+A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](https://shop.m5stack.com/products/m5stack-cardputer-adv-version-esp32-s3) (ESP32-S3). SD-card folder browsing, custom color themes, a couple of full-screen visualizers, and no companion app required.
+
 
 <p float="left">
-  <img src="docs/screenshots/now_playing.png" width="360" alt="Now Playing screen">
-  <img src="docs/screenshots/file_navigation.png" width="360" alt="Folder browser">
+  <img src="docs/screenshots/now_playing.png" width="334" alt="Now Playing screen">
+  <img src="docs/screenshots/file_navigation.png" width="334" alt="Folder browser">
+  <img src="https://github.com/user-attachments/assets/57eebac1-4dfc-464e-8e84-12f8bde95d6e" width="334" alt="viusalizer_Image">
 </p>
 
 ## In motion
@@ -27,18 +32,6 @@ A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](htt
 
 - M5Stack Cardputer ADV (ESP32-S3, no PSRAM).
 - A microSD card for your music (and optionally custom themes — see below).
-
-## Building / flashing
-
-This is a [PlatformIO](https://platformio.org/) project.
-
-```
-git clone https://github.com/HorseyofCoursey/EMBER.git
-cd EMBER
-pio run --target upload
-```
-
-Everything lives in `src/main.cpp`; there's no separate config step. See `CLAUDE.md` for the hardware/architecture constraints if you're planning to modify it.
 
 ## Controls
 
