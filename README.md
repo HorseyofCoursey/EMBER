@@ -16,7 +16,7 @@ A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](htt
 
 | Full-screen dancer visualizer | Turntable placeholder | Theme cycling |
 |:---:|:---:|:---:|
-| ![Dancers](docs/screenshots/dancers.gif) | ![Turntable](docs/screenshots/record_spinning.gif) | !<img width="330" alt="Image" src="https://github.com/user-attachments/assets/4868eb45-de1d-4689-ba93-1db2f00431b6" />) |
+| ![Dancers](docs/screenshots/dancers.gif) | ![Turntable](docs/screenshots/record_spinning.gif) | <img width="330" alt="Image" src="https://github.com/user-attachments/assets/4868eb45-de1d-4689-ba93-1db2f00431b6" />) |
 
 ## Features
 
