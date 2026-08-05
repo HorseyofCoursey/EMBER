@@ -7,9 +7,9 @@ A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](htt
 
 
 <p float="left">
-  <img src="docs/screenshots/now_playing.png" width="330" alt="Now Playing screen">
-  <img src="docs/screenshots/file_navigation.png" width="330" alt="Folder browser">
-  <img src="https://github.com/user-attachments/assets/57eebac1-4dfc-464e-8e84-12f8bde95d6e" width="330" alt="viusalizer_Image">
+  <img src="docs/screenshots/now_playing.png" width="320" alt="Now Playing screen">
+  <img src="docs/screenshots/file_navigation.png" width="320" alt="Folder browser">
+  <img src="https://github.com/user-attachments/assets/57eebac1-4dfc-464e-8e84-12f8bde95d6e" width="320" alt="viusalizer_Image">
 </p>
 
 ## In motion
