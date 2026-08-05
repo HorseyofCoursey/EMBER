@@ -16,7 +16,7 @@ A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](htt
 
 | Full-screen dancer visualizer | Turntable placeholder | Theme cycling |
 |:---:|:---:|:---:|
-| ![Dancers](docs/screenshots/dancers.gif) | ![Turntable](docs/screenshots/record_spinning.gif) | ![Theme cycling](docs/screenshots/theme_cycle.gif) |
+| ![Dancers](docs/screenshots/dancers.gif) | ![Turntable](docs/screenshots/record_spinning.gif) | !<img width="330" alt="Image" src="https://github.com/user-attachments/assets/4868eb45-de1d-4689-ba93-1db2f00431b6" />) |
 
 ## Features
 
@@ -61,8 +61,6 @@ Every color in the UI — backgrounds, text, selection highlight, visualizer tie
 **Make your own:** open the [theme editor](https://horseyofcoursey.github.io/EMBER/tools/theme-editor.html) in a browser. It shows a live, device-accurate preview (colors are quantized to the Cardputer's actual 16-bit display depth, so what you see is what you'll get) of the browser, Now Playing, and visualizer screens as you tweak each color.
 
 **Use it on your device (no recompiling):** on the JSON tab, click **Download**, then copy the file into a `/themes` folder on your SD card. After a reboot, it shows up as an extra option under **Settings → Theme**.
-
-**Contribute it back:** switch to the `main.cpp` tab instead, copy the generated struct, and open a PR or issue with it — that gets it built into the firmware for everyone, not just your SD card.
 
 The editor also works completely offline as a local file (`tools/theme-editor.html`) if you'd rather not use the hosted copy.
 
