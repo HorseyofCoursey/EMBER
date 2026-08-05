@@ -1,17 +1,22 @@
-# Ember
+<img width="1100" height="400" alt="Image" src="https://github.com/user-attachments/assets/cc78e87a-e181-499a-aee7-c9214cfb5a73" />
 
-A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](https://docs.m5stack.com/en/core/Cardputer%20ADV) (ESP32-S3). SD-card folder browsing, custom color themes, a couple of full-screen visualizers, and no companion app required.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-orange)](https://buymeacoffee.com/horseyofcoursey)
+
+A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](https://shop.m5stack.com/products/m5stack-cardputer-adv-version-esp32-s3) (ESP32-S3). SD-card folder browsing, album art, custom color themes, and a couple of full-screen visualizers.
+
 
 <p float="left">
-  <img src="docs/screenshots/now_playing.png" width="360" alt="Now Playing screen">
-  <img src="docs/screenshots/file_navigation.png" width="360" alt="Folder browser">
+  <img src="docs/screenshots/now_playing.png" width="330" alt="Now Playing screen">
+  <img src="docs/screenshots/file_navigation.png" width="330" alt="Folder browser">
+  <img src="https://github.com/user-attachments/assets/57eebac1-4dfc-464e-8e84-12f8bde95d6e" width="330" alt="viusalizer_Image">
 </p>
 
 ## In motion
 
 | Full-screen dancer visualizer | Turntable placeholder | Theme cycling |
 |:---:|:---:|:---:|
-| ![Dancers](docs/screenshots/dancers.gif) | ![Turntable](docs/screenshots/record_spinning.gif) | ![Theme cycling](docs/screenshots/theme_cycle.gif) |
+| ![Dancers](docs/screenshots/dancers.gif) | ![Turntable](docs/screenshots/record_spinning.gif) | !<img width="330" alt="Image" src="https://github.com/user-attachments/assets/4868eb45-de1d-4689-ba93-1db2f00431b6" />) |
 
 ## Features
 
@@ -28,18 +33,6 @@ A themeable MP3 / FLAC / WAV player firmware for the [M5Stack Cardputer ADV](htt
 - M5Stack Cardputer ADV (ESP32-S3, no PSRAM).
 - A microSD card for your music (and optionally custom themes — see below).
 
-## Building / flashing
-
-This is a [PlatformIO](https://platformio.org/) project.
-
-```
-git clone https://github.com/HorseyofCoursey/EMBER.git
-cd EMBER
-pio run --target upload
-```
-
-Everything lives in `src/main.cpp`; there's no separate config step. See `CLAUDE.md` for the hardware/architecture constraints if you're planning to modify it.
-
 ## Controls
 
 The Cardputer has no dedicated arrow keys — the punctuation cluster doubles as one: `;` `.` `,` `/` map to up/down/back/open.
@@ -53,7 +46,7 @@ The Cardputer has no dedicated arrow keys — the punctuation cluster doubles as
 | Enter | Open / play |
 | Space | Play / pause |
 | `,` / `/` (Now Playing) | Seek back/forward; double-tap to restart / skip to next track |
-| `n` / `p` | Next / previous track |
+| `n` / `b` | Next / previous track |
 | `-` / `=` | Volume down / up |
 | `m` | Toggle Now Playing screen |
 | `v` (Now Playing) | Cycle full-screen visualizer: spectrum → dancers → back |
@@ -69,14 +62,24 @@ Every color in the UI — backgrounds, text, selection highlight, visualizer tie
 
 **Use it on your device (no recompiling):** on the JSON tab, click **Download**, then copy the file into a `/themes` folder on your SD card. After a reboot, it shows up as an extra option under **Settings → Theme**.
 
-**Contribute it back:** switch to the `main.cpp` tab instead, copy the generated struct, and open a PR or issue with it — that gets it built into the firmware for everyone, not just your SD card.
-
 The editor also works completely offline as a local file (`tools/theme-editor.html`) if you'd rather not use the hosted copy.
 
 ## Taking your own screenshots
 
 Press `c` on any screen to save a BMP to `/screenshots` on the SD card; hold it to burst-capture a sequence (useful for the animated screens). There's no timestamp metadata (no RTC on this board), so if you need to tell capture sessions apart afterward, diffing consecutive frames for content changes works well.
 
+## Credit
+Thank you to the creators of the following repositories (in no particular order) that inspired this project and provided a code base to start.
+[AdvanceOS-for-cardputer](https://github.com/bomberman30/AdvanceOS-for-cardputer) - bomberman30  
+[MP3PlayerforM5Cardputer](https://github.com/sanchitminda/MP3PlayerForM5Cardputer) -  sanchitminda  
+[CardPuter_Mp3_Adv](https://github.com/vicliu624/CardPuter_Mp3_Adv) - vicliu624  
+[M5Mp3](https://github.com/VolosR/M5Mp3) - VolosR
+
+
+
+
 ## License
 
 [MIT](LICENSE)
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-orange)](https://buymeacoffee.com/horseyofcoursey)
