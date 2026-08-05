@@ -24,7 +24,7 @@ static const int SD_SCK = 40, SD_MISO = 39, SD_MOSI = 14, SD_CS = 12;
 // ---------- Navigation keys ----------
 static const char KEY_UP = ';', KEY_DOWN = '.', KEY_BACK = ',', KEY_OPEN = '/';
 static const char KEY_VOLUP = '=', KEY_VOLDN = '-';
-static const char KEY_NEXT = 'n', KEY_PREV = 'p';
+static const char KEY_NEXT = 'n', KEY_PREV = 'b';
 static const char KEY_NOWPLAYING = 'm';
 static const char KEY_SETTINGS = 's';
 static const char KEY_ART_TOGGLE = 'a';   // Now Playing only: force turntable vs real art
@@ -173,12 +173,12 @@ static const Theme THEME_HONEY = {
     rgb565(137, 81, 42),       // dim
     rgb565(137, 81, 42),       // play
     rgb565(137, 81, 42),       // npText
-    rgb565(255, 199, 33),      // volumeIcon
+    rgb565(137, 81, 42),       // volumeIcon
     rgb565(137, 81, 42),       // progressDot
     rgb565(255, 199, 33),      // visMid
     rgb565(255, 252, 207),     // visHigh
-    rgb565(208, 187, 108),     // npBg
-    rgb565(145, 131, 120),     // visIdle
+    rgb565(249, 223, 118),     // npBg
+    rgb565(249, 223, 118),     // visIdle
 };
 // Generated via tools/theme-editor.html, preset "Moody".
 static const Theme THEME_MOODY = {
@@ -197,7 +197,7 @@ static const Theme THEME_MOODY = {
     rgb565(152, 134, 134),     // visMid
     rgb565(210, 208, 209),     // visHigh
     rgb565(12, 8, 6),          // npBg
-    rgb565(128, 128, 128),     // visIdle
+    rgb565(8, 8, 0),           // visIdle
 };
 // Generated via tools/theme-editor.html, preset "Terminal Green".
 static const Theme THEME_TERMINAL_GREEN = {
@@ -289,8 +289,22 @@ static int settingScreenOffIdx = 2;   // default 30 sec
 
 static int settingThemeIdx = 0;   // default Ember (THEME_LIST[0])
 
-static const int SETTINGS_COUNT = 4;
+// Off by default -- screenshot capture reads the framebuffer back over SPI
+// (see saveScreenshot()), which most people flashing this will never use,
+// so it shouldn't be live by default just because the 'c' key happens to be
+// otherwise unbound.
+static const char* onOffLabels[] = { "Off", "On" };
+static bool settingScreenshotsEnabled = false;
+
+static const int SETTINGS_COUNT = 5;
 static int settingsCursor = 0;
+
+// Rows visible at once in the settings box -- SETTINGS_COUNT no longer fits
+// the whole list on screen at once (5 rows * ROW_H would be taller than the
+// 135px display), so it scrolls like the browser list does, just over a
+// much shorter list.
+static const int SETTINGS_VISIBLE = 3;
+static int settingsScroll = 0;
 
 static Preferences settingsPrefs;
 
@@ -304,6 +318,7 @@ static void loadSettings() {
     settingScreenOffIdx = settingsPrefs.getInt("screenOff", 2);
     albumEndMode = (AlbumEndMode)settingsPrefs.getInt("albumEnd", ALBUM_STOP);
     settingThemeIdx = settingsPrefs.getInt("themeIdx", 0);
+    settingScreenshotsEnabled = settingsPrefs.getBool("screenshots", false);
     settingsPrefs.end();
 
     if (settingBacklightIdx < 0 || settingBacklightIdx >= BACKLIGHT_COUNT) settingBacklightIdx = BACKLIGHT_COUNT - 1;
@@ -320,6 +335,7 @@ static void saveSettings() {
     settingsPrefs.putInt("screenOff", settingScreenOffIdx);
     settingsPrefs.putInt("albumEnd", (int)albumEndMode);
     settingsPrefs.putInt("themeIdx", settingThemeIdx);
+    settingsPrefs.putBool("screenshots", settingScreenshotsEnabled);
     settingsPrefs.end();
 }
 
@@ -1587,7 +1603,7 @@ static void drawSettingsBox() {
 
     const int titleH = 24;   // fits FreeSans's ~22px line height with a little breathing room
     const int boxW = d.width() - 40;
-    const int boxH = titleH + SETTINGS_COUNT * ROW_H + 8;
+    const int boxH = titleH + SETTINGS_VISIBLE * ROW_H + 8;
     const int boxX = (d.width() - boxW) / 2;
     const int boxY = (d.height() - boxH) / 2;
 
@@ -1597,15 +1613,18 @@ static void drawSettingsBox() {
     d.setCursor(boxX + 6, boxY + (titleH - d.fontHeight()) / 2);
     d.print("Settings");
 
-    const char* names[SETTINGS_COUNT]  = { "Backlight", "Screen off", "Album end", "Theme" };
+    const char* names[SETTINGS_COUNT]  = { "Backlight", "Screen off", "Album end", "Theme", "Screenshots" };
     String values[SETTINGS_COUNT] = {
         backlightLabels[settingBacklightIdx],
         screenOffLabels[settingScreenOffIdx],
         albumEndLabels[albumEndMode],
         themeLabelAt(settingThemeIdx),
+        onOffLabels[settingScreenshotsEnabled ? 1 : 0],
     };
-    for (int i = 0; i < SETTINGS_COUNT; i++) {
-        int y = boxY + titleH + i * ROW_H;
+    for (int row = 0; row < SETTINGS_VISIBLE; row++) {
+        int i = settingsScroll + row;
+        if (i >= SETTINGS_COUNT) break;
+        int y = boxY + titleH + row * ROW_H;
         bool sel = (i == settingsCursor);
         uint16_t bg = sel ? COL_SEL_BG : COL_BG;
         uint16_t fg = sel ? COL_SEL_FG : COL_FOLDER;
@@ -1617,6 +1636,18 @@ static void drawSettingsBox() {
         int vw = d.textWidth(values[i].c_str());
         d.setCursor(boxX + boxW - 6 - vw, textY);
         d.print(values[i]);
+    }
+
+    // Small hand-drawn triangles in the title bar corner -- same spirit as
+    // drawFolderIcon() elsewhere, rather than relying on an arrow glyph
+    // FreeSans doesn't have -- indicating there's more to scroll to.
+    int indX = boxX + boxW - 14;
+    if (settingsScroll > 0) {
+        d.fillTriangle(indX, boxY + 15, indX - 4, boxY + 20, indX + 4, boxY + 20, COL_FOLDER);
+    }
+    if (settingsScroll + SETTINGS_VISIBLE < SETTINGS_COUNT) {
+        int by = boxY + boxH - 2;
+        d.fillTriangle(indX, by, indX - 4, by - 5, indX + 4, by - 5, COL_FOLDER);
     }
 }
 
@@ -1660,6 +1691,9 @@ static void cycleSetting(int idx) {
             saveSettings();
             drawSettings();
             return;
+        case 4:
+            settingScreenshotsEnabled = !settingScreenshotsEnabled;
+            break;
     }
     saveSettings();
     drawSettingsBox();
@@ -2135,6 +2169,7 @@ static void showSplash() {
 }
 
 // ---------- Screenshots (KEY_SCREENSHOT, any screen) ----------
+// Off by default -- see settingScreenshotsEnabled (Settings -> Screenshots).
 // For pulling real on-device screenshots for documentation/README use
 // without photographing the screen. Reads the framebuffer back over SPI via
 // LovyanGFX's readRect() and writes a plain 24-bit uncompressed BMP to SD --
@@ -2174,6 +2209,7 @@ static void initScreenshotIndex() {
 }
 
 static void saveScreenshot() {
+    if (!settingScreenshotsEnabled) return;   // off by default -- Settings -> Screenshots
     initScreenshotIndex();
     auto &d = M5Cardputer.Display;
     int w = d.width(), h = d.height();
@@ -2466,7 +2502,7 @@ void loop() {
             for (char c : ks.word) {
                 if (c == KEY_SETTINGS) {
                     if (uiMode == MODE_SETTINGS) { uiMode = uiModeBeforeSettings; }
-                    else { uiModeBeforeSettings = uiMode; uiMode = MODE_SETTINGS; settingsCursor = 0; }
+                    else { uiModeBeforeSettings = uiMode; uiMode = MODE_SETTINGS; settingsCursor = 0; settingsScroll = 0; }
                     needsRedraw = true;
                 } else if (c == KEY_NOWPLAYING) {
                     // Nothing to show there with no track loaded -- only allow
@@ -2494,9 +2530,13 @@ void loop() {
                     else goBack();
                 } else if (uiMode == MODE_SETTINGS && c == KEY_UP) {
                     settingsCursor = (settingsCursor - 1 + SETTINGS_COUNT) % SETTINGS_COUNT;
+                    if (settingsCursor < settingsScroll) settingsScroll = settingsCursor;
+                    if (settingsCursor >= settingsScroll + SETTINGS_VISIBLE) settingsScroll = settingsCursor - SETTINGS_VISIBLE + 1;
                     drawSettingsBox();
                 } else if (uiMode == MODE_SETTINGS && c == KEY_DOWN) {
                     settingsCursor = (settingsCursor + 1) % SETTINGS_COUNT;
+                    if (settingsCursor < settingsScroll) settingsScroll = settingsCursor;
+                    if (settingsCursor >= settingsScroll + SETTINGS_VISIBLE) settingsScroll = settingsCursor - SETTINGS_VISIBLE + 1;
                     drawSettingsBox();
                 } else if (uiMode == MODE_SETTINGS && c == KEY_OPEN) {
                     cycleSetting(settingsCursor);
