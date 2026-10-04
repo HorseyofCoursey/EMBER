@@ -13,9 +13,11 @@
 #include "AudioGeneratorWAV.h"
 #include "AudioGeneratorAAC.h"
 #include "AudioOutput.h"
+#ifdef ENABLE_GONIC
 #include "AudioFileSourceHTTPRange.h"
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#endif
 #include "network.h"
 #include "ember_logo.h"
 #include "turntable_frames.h"
@@ -459,7 +461,9 @@ static AudioFileSourceID3 *id3  = nullptr;
 // local and remote audio; netSrc is the reusable seekable HTTP object that
 // survives across tracks (its 16 KB buffer is allocated once per session).
 static AudioFileSource         *netStream = nullptr;
+#ifdef ENABLE_GONIC
 static AudioFileSourceHTTPRange *netSrc   = nullptr;
+#endif
 
 // ---------- Visualizer level history ----------
 // A cheap amplitude-based visualizer: no FFT, just the average |sample| of each
@@ -1090,6 +1094,7 @@ static void loadAlbumArt(const char* path) {
 // copy (there's nowhere cheap to cache it to) -- acceptable since this only
 // fires on track changes and Now Playing redraws (e.g. after Settings), an
 // already-brief-stall-tolerant path, not the steady playback loop.
+#ifdef ENABLE_GONIC
 static bool drawNetAlbumArt() {
     String url = net::albumArtURL();
     if (!url.length()) return false;
@@ -1124,10 +1129,15 @@ static bool drawNetAlbumArt() {
     http.end();
     return ok;
 }
+#else
+static bool drawNetAlbumArt() { return false; }
+#endif
 
 // SEAM: this is the only place the Now Playing screen paints the art box. Today it
 // blits the cached cover (or placeholder); a future audio visualizer can render live
 // here instead, without touching the loading/caching logic above.
+static void ensureArtSprites();   // defined below; lazily recreates coverSprite/turntableSprite
+
 static void drawArtRegion() {
     if (netStream) {
         auto &d = M5Cardputer.Display;
@@ -1143,6 +1153,10 @@ static void drawArtRegion() {
         if (!coverHasArt) drawTurntableFrameDirect();
         return;
     }
+    // Recreate coverSprite/turntableSprite if enterFullVis() freed them to
+    // make room for the full-screen sprite -- cheap no-op once they're
+    // already allocated.
+    ensureArtSprites();
     bool showTurntable = !coverHasArt || preferTurntable;
     if (showTurntable && turntableSpriteOk) turntableSprite->pushSprite(COVER_X, COVER_Y);
     else if (!showTurntable && coverSpriteOk) coverSprite->pushSprite(COVER_X, COVER_Y);
@@ -1553,6 +1567,7 @@ static AudioFileSource* activeAudioSource() {
 
 static void drawNowPlaying();   // defined below, in the Now Playing section
 
+#ifdef ENABLE_GONIC
 // Play song <idx> of the loaded album over the network. Mirrors
 // playQueuePos(): AudioFileSourceHTTPRange -> decoder (MP3/AAC/FLAC per
 // Content-Type) -> out. Metadata comes from the Subsonic XML (title, artist,
@@ -1650,6 +1665,16 @@ static void exitNetMode() {
     uiMode = MODE_BROWSER;
     needsRedraw = true;
 }
+#else
+// Gonic isn't compiled into this build (see network_stub.cpp) -- none of
+// these are reachable (KEY_NETWORK and KEY_FULLVIS's net-mode checks are
+// guarded the same way), but still need to exist for the few call sites
+// elsewhere that aren't worth individually guarding since netStream simply
+// never becomes non-null here.
+static void playNetSong(int, bool) {}
+static void netTrackEnded() {}
+static void exitNetMode() {}
+#endif
 
 static void drawProgressBar();   // defined below, in the Now Playing section
 
@@ -2471,6 +2496,17 @@ static void drawVisualizer() {
 // not at boot -- it's 240*135*2 = ~64KB, more than worth avoiding as a
 // permanent reservation on a board with no PSRAM if it's never used.
 static const int FULLVIS_BAR_W = 4;
+// Full display height (135) x width (240) x 2 bytes/px is ~65KB -- more than
+// fits as one contiguous block once a track's decoder buffers are resident
+// (measured largest free block ~59KB in that state, down from ~78KB at
+// boot -- normal decoder overhead, not something freeing other sprites
+// recovers, since they don't happen to sit adjacent to the relevant free
+// region). 8-bit color halves that to ~32KB, comfortably inside the ~59KB
+// available, and costs nothing visually here -- both styles are solid UI
+// colors (bars/lines/silhouettes), not photo content. One sprite shared by
+// both styles (no mid-session realloc when switching Spectrum<->Dancers --
+// that was tried and made fragmentation worse, not better) at the real full
+// height, no letterboxing either way.
 static const int FULLVIS_METER_H = 2, FULLVIS_METER_GAP = 1;
 static const uint32_t FULLVIS_PEAK_DECAY_MS = 40;   // peak dot falls one pixel this often
 static const uint32_t FULLVIS_INTERVAL_MS = 66;     // ~15fps
@@ -2483,6 +2519,17 @@ static unsigned long fvLastPeakDecay = 0;
 static M5Canvas *fullVisSprite = nullptr;
 static bool fullVisSpriteOk = false;
 
+// Freed on every exit from MODE_FULLVIS (not kept resident like the
+// original "allocate once" design) -- leaving it allocated permanently once
+// full-vis had ever been entered during a boot left too little room for a
+// *later* track's own decoder buffers to allocate, breaking playback on the
+// next track picked after visiting full-vis once. Reallocated fresh
+// (cheap, infrequent, user-triggered) each time instead.
+static void freeFullVisSprite() {
+    if (fullVisSprite) { delete fullVisSprite; fullVisSprite = nullptr; }
+    fullVisSpriteOk = false;
+}
+
 // Two full-screen styles, cycled with repeated KEY_FULLVIS presses from Now
 // Playing: Spectrum (the FFT bars below) -> Dancers (see further down) ->
 // back to the regular Now Playing screen. Always re-enters at Spectrum.
@@ -2492,13 +2539,12 @@ static FullVisStyle fullVisStyle = FULLVIS_SPECTRUM;
 static void drawFullVisSpectrum();   // defined here
 static void drawFullVisDancers(uint32_t dtMs);   // defined further down, near the dancer frame data
 
-// Only allocates (and only once) on first entry -- see the note above.
 static void enterFullVis() {
     auto &d = M5Cardputer.Display;
     if (!fullVisSprite) {
         fullVisSprite = new M5Canvas(&d);
         fullVisSprite->setPsram(false);
-        fullVisSprite->setColorDepth(16);
+        fullVisSprite->setColorDepth(8);
         fullVisSpriteOk = (fullVisSprite->createSprite(d.width(), d.height()) != nullptr);
         if (!fullVisSpriteOk) { Serial.println("full-screen visualizer sprite alloc failed"); return; }
 
@@ -2506,7 +2552,7 @@ static void enterFullVis() {
         if (fvBarCount > FULLVIS_MAX_BARS) fvBarCount = FULLVIS_MAX_BARS;
         if (fvBarCount > FFT_SIZE / 2) fvBarCount = FFT_SIZE / 2;
     }
-    if (!fullVisSpriteOk) return;   // alloc failed earlier -- stay on the regular Now Playing screen
+    if (!fullVisSpriteOk) return;
     for (int i = 0; i < fvBarCount; i++) fvPeakY[i] = 0;
     fullVisStyle = FULLVIS_SPECTRUM;
     uiMode = MODE_FULLVIS;
@@ -2528,7 +2574,7 @@ static void drawFullVis() {
 
 static void drawFullVisSpectrum() {
     auto &d = M5Cardputer.Display;
-    int w = d.width(), h = d.height();
+    int w = d.width(), h = d.height();   // runs at the real full height -- see the sprite note above
 
     fft.exec(visRawBuf);
     fullVisSprite->fillSprite(COL_NP_BG);
@@ -2686,12 +2732,18 @@ static int dancerFrameIndex(float pos, float phaseOffset, const DancerAsset& a) 
 // there (the background fill, or another dancer drawn first) shows through,
 // unlike drawTurntableFrame()'s full fill+redraw (that one owns its whole
 // sprite; this one shares the full-screen canvas with 3 other dancers).
+// dest is always the shared 8bpp full-vis sprite (see the note above
+// enterFullVis()) -- fg is converted from the theme's normal RGB565 to
+// LovyanGFX's packed RRRGGGBB byte once, up front, matching the exact
+// truncation lgfx::color332() does (top 3/3/2 bits of R5/G6/B5), rather than
+// a 16-bit swapped write like the turntable placeholder's sprite (which
+// stays 16bpp) uses.
 static void blitDancer(M5Canvas* dest, int destX, int destY, const DancerAsset& a, int frameIdx, bool mirror, uint16_t fg) {
     const uint8_t* frame = &a.frames[frameIdx * a.bytesPerFrame];
-    uint16_t* buf = (uint16_t*)dest->getBuffer();
+    uint8_t* buf = (uint8_t*)dest->getBuffer();
     int destW = dest->width(), destH = dest->height();
     int rowBytes = (a.w + 7) / 8;
-    uint16_t fgSwapped = (fg >> 8) | (fg << 8);
+    uint8_t fg332 = (uint8_t)((((fg >> 13) & 0x7) << 5) | (((fg >> 8) & 0x7) << 2) | ((fg >> 3) & 0x3));
     for (int y = 0; y < a.h; y++) {
         int dy = destY + y;
         if (dy < 0 || dy >= destH) continue;
@@ -2702,7 +2754,7 @@ static void blitDancer(M5Canvas* dest, int destX, int destY, const DancerAsset& 
             if (!on) continue;
             int dx = destX + x;
             if (dx < 0 || dx >= destW) continue;
-            buf[dy * destW + dx] = fgSwapped;
+            buf[dy * destW + dx] = fg332;
         }
     }
 }
@@ -2974,7 +3026,10 @@ static void loadCustomThemes() {
 
 // ---------- Network module: accessors for network.cpp ----------
 // The network screens draw with the active theme's colors/fonts through
-// these, so they match EMBER's look whatever theme is selected.
+// these, so they match EMBER's look whatever theme is selected. Only
+// called from the real network.cpp, so not needed at all when that's
+// swapped for network_stub.cpp (see platformio.ini).
+#ifdef ENABLE_GONIC
 void emb_getNetPalette(NetPalette& p) {
     p.bg = COL_BG;
     p.header = COL_HEADER;
@@ -2992,6 +3047,7 @@ void emb_drawStatusIcons() { drawStatusIcons(); }
 bool emb_uiIsNet() { return uiMode == MODE_NET; }
 bool emb_isNetPlaying() { return netStream != nullptr; }
 void emb_playNetSong(int idx, bool jumpToNowPlaying) { playNetSong(idx, jumpToNowPlaying); }
+#endif
 
 void setup() {
     Serial.begin(115200);
@@ -3147,22 +3203,32 @@ void loop() {
                     // While a remote song is playing, "back" lands on the
                     // network song list instead of the SD browser.
                     if (uiMode == MODE_NOWPLAYING || uiMode == MODE_FULLVIS) {
+                        if (uiMode == MODE_FULLVIS) freeFullVisSprite();
                         uiMode = netStream ? MODE_NET : MODE_BROWSER;
                         needsRedraw = true;
                     }
                     else if (playState != STOPPED) { uiMode = MODE_NOWPLAYING; needsRedraw = true; }
                 } else if (uiMode == MODE_NOWPLAYING && c == KEY_FULLVIS) {
-                    // Full-screen viz needs a ~65KB sprite we don't have free
-                    // heap for once WiFi/HTTP is up, so it's disabled outright
-                    // in network mode rather than attempting and failing.
-                    if (!netStream) enterFullVis();   // always starts at the Spectrum style
+#ifndef ENABLE_GONIC
+                    enterFullVis();   // always starts at the Spectrum style
+#endif
+                    // Left out of the Gonic build entirely ('v' is a clean
+                    // no-op there) -- its sprite doesn't reliably survive a
+                    // real session's heap fragmentation once WiFi/
+                    // HTTPClient are linked in (measured and reverted after
+                    // repeated failures chasing a fixed-size-fits-all
+                    // compromise; see git history on this file).
                 } else if (uiMode == MODE_FULLVIS && c == KEY_FULLVIS) {
                     // Cycle Spectrum -> Dancers -> back to the regular Now Playing screen.
+                    // Both styles share one sprite (see the note above
+                    // enterFullVis()), so switching between them is just a
+                    // flag flip -- no realloc, nothing that can fail here.
                     if (fullVisStyle == FULLVIS_SPECTRUM) {
                         fullVisStyle = FULLVIS_DANCERS;
                         resetDancePhysics();
                         needsRedraw = true;
                     } else {
+                        freeFullVisSprite();
                         uiMode = MODE_NOWPLAYING;
                         needsRedraw = true;
                     }
@@ -3172,6 +3238,7 @@ void loop() {
                     // "seek backward" instead (see below).
                     if (uiMode == MODE_SETTINGS)        { uiMode = uiModeBeforeSettings; needsRedraw = true; }
                     else if (uiMode == MODE_NOWPLAYING || uiMode == MODE_FULLVIS) {
+                        if (uiMode == MODE_FULLVIS) freeFullVisSprite();
                         uiMode = netStream ? MODE_NET : MODE_BROWSER;
                         needsRedraw = true;
                     }
@@ -3228,6 +3295,7 @@ void loop() {
                 } else if (uiMode == MODE_BROWSER && c == KEY_UP)   moveCursor(-1);
                 else if (uiMode == MODE_BROWSER && c == KEY_DOWN) moveCursor(+1);
                 else if (uiMode == MODE_BROWSER && c == KEY_OPEN) openSelected();
+#ifdef ENABLE_GONIC
                 else if (c == KEY_NETWORK) {
                     // 'w' toggles the network player (Subsonic/Gonic). Entering
                     // stops SD playback and frees the art sprites (WiFi + HTTP
@@ -3247,6 +3315,7 @@ void loop() {
                         }
                     }
                 }
+#endif
                 else if (uiMode == MODE_NET && c == KEY_UP)   net::moveCursor(-1);
                 else if (uiMode == MODE_NET && c == KEY_DOWN) net::moveCursor(+1);
                 else if (uiMode == MODE_NET && c == KEY_OPEN) net::onEnter();
