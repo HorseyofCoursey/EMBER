@@ -136,6 +136,7 @@ Press `c` on any screen to save a BMP to `/screenshots` on the SD card; hold it 
 
 ## Credit
 Thank you to the creators of the following repositories (in no particular order) that inspired this project and provided a code base to start.
+[BrokenSignal-Plus](https://github.com/mr-f0xx/BrokenSignal-Plus) - mr-f0xx     
 [AdvanceOS-for-cardputer](https://github.com/bomberman30/AdvanceOS-for-cardputer) - bomberman30  
 [MP3PlayerforM5Cardputer](https://github.com/sanchitminda/MP3PlayerForM5Cardputer) -  sanchitminda  
 [CardPuter_Mp3_Adv](https://github.com/vicliu624/CardPuter_Mp3_Adv) - vicliu624  
