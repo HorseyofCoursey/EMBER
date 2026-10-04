@@ -120,6 +120,11 @@ MCLK is left disconnected — the UDA1334A doesn't need it. GPIO5/6 are the ADV-
 
 Enable it in **Settings → Audio output** (defaults to internal) once wired up.
 
+**Stereo Hat-Hat**
+[This stl will house the stereo board.](https://www.printables.com/model/1861468-stereo-hat-hat-for-the-cardputer)
+
+<img width="382" height="505" alt="Image" src="https://github.com/user-attachments/assets/96860cda-94e3-4839-8eb5-a347ebcc518f" />
+
 ## Custom themes
 
 Every color in the UI — backgrounds, text, selection highlight, visualizer tiers, all of it — comes from one theme struct, editable without touching any drawing code.
